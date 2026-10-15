@@ -10,6 +10,7 @@ const pets = ref([]); // 'lugar' onde guardamos os pets (começa vazia)
 const tutores = ref([]); // 'lugar' onde guardamos os tutores (começa vazia)
 const carregando = ref(true); // true = ainda carregando, false = já carregou
 const erro = ref(''); // guarda a mensagem de erro, se der ruim
+const erroExcluir = ref(''); // erro só da exclusão (assim a tabela continua na tela)
 
 /* 
   função que busca os pets lá na API.
@@ -80,6 +81,37 @@ function nomeDoTutor(tutorId) {
   return 'Tutor Não Encontrado!';
 }
 
+/*
+  recebe o pet que foi clicado e pergunta se a pessoa tem certeza.
+  se confirmar, manda o DELETE pra API e busca a lista de novo
+  pra tabela mostrar os pets que sobraram.
+*/
+async function excluirPet(pet) {
+  // se a pessoa cancelar, para por aqui
+  if (!confirm(`Deseja excluir o pet ${pet.nome}?`)) {
+    return;
+  }
+
+  erroExcluir.value = ''; // limpa o erro de antes, se tinha
+
+  try {
+    // DELETE no endereço do pet: /pets/ID
+    const resposta = await fetch(`${API_URL}/pets/${pet.id}`, {
+      method: 'DELETE',
+    });
+
+    if (!resposta.ok) {
+      throw new Error(`Erro ${resposta.status} ao excluir o pet.`);
+    }
+
+    // deu certo, então atualiza a lista na tela
+    await carregarPets();
+  } catch (e) {
+    console.error(e);
+    erroExcluir.value = 'Não foi possível excluir o pet. Tente novamente.';
+  }
+}
+
 // quando a página abrir, roda essas duas funções
 onMounted(() => {
   carregarPets();
@@ -122,32 +154,67 @@ onMounted(() => {
     </div>
 
     <!-- só aparece se carregou e não deu erro -->
-    <table
-      v-else
-      class="table table-striped table-hover"
-    >
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nome</th>
-          <th>Especie</th>
-          <th>Tutor</th>
-        </tr>
-      </thead>
+    <div v-else>
+      <!-- só aparece se deu erro ao excluir -->
+      <div
+        v-if="erroExcluir"
+        class="alert alert-danger mt-3"
+        role="alert"
+      >
+        {{ erroExcluir }}
+      </div>
 
-      <tbody>
-        <!-- faz uma linha da tabela pra cada pet -->
-        <tr
-          v-for="pet in pets"
-          :key="pet.id"
-        >
-          <td>{{ pet.id }}</td>
-          <td>{{ pet.nome }}</td>
-          <td>{{ pet.especie }}</td>
-          <!-- mostra o nome do tutor do pet -->
-          <td>{{ nomeDoTutor(pet.tutorId) }}</td>
-        </tr>
-      </tbody>
-    </table>
+      <table class="table table-striped table-hover mt-3">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Especie</th>
+            <th>Tutor</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <!-- faz uma linha da tabela pra cada pet -->
+          <tr
+            v-for="pet in pets"
+            :key="pet.id"
+          >
+            <td>{{ pet.id }}</td>
+            <td>{{ pet.nome }}</td>
+            <td>{{ pet.especie }}</td>
+            <!-- mostra o nome do tutor do pet -->
+            <td>{{ nomeDoTutor(pet.tutorId) }}</td>
+            <!-- botões de ação: ver os detalhes e excluir este pet -->
+            <td>
+              <!-- leva pra /pets/ID, usando o id desta linha -->
+              <RouterLink
+                class="btn btn-sm btn-outline-primary me-2"
+                :to="{ name: 'petDetails', params: { id: pet.id } }"
+              >
+                <i
+                  class="bi bi-eye me-1"
+                  aria-hidden="true"
+                ></i>
+                Detalhes
+              </RouterLink>
+
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                @click="excluirPet(pet)"
+              >
+                <i
+                  class="bi bi-trash me-1"
+                  aria-hidden="true"
+                ></i>
+                Excluir
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
